@@ -1,8 +1,8 @@
-# Verify a base image during a Docker build
+# Base image verification during a Docker build
 
 Docker builds normally pull a base image without checking whether it was signed
 by a trusted publisher. Pinning the image by digest fixes which content is used,
-but does not establish who published it.
+but does not verify who published it.
 
 This repo demonstrates how to use multi-stage Dockerfiles to verify signatures
 of base images, using Notation and Cosign, while also verifying the Notation/
