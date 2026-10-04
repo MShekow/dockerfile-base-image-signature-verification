@@ -1,0 +1,36 @@
+ARG BASE_IMAGE=mcr.microsoft.com/openjdk/jdk:25-distroless@sha256:5610262615ea433b5cdc08dc0172972ac15177301a8ae3aeb202646356b18f0f
+ARG VERIFICATION_IMAGE=mcr.microsoft.com/azurelinux/base/core:3.0@sha256:1324a2cf7ed34e5f48a1022816b205782b86c7305651658e611dcd3d30756751
+
+FROM --platform=$BUILDPLATFORM ${VERIFICATION_IMAGE} AS verification-tooling
+ARG VERIFICATION_IMAGE
+ARG BUILDARCH
+ARG NOTATION_VERSION=1.3.2
+
+RUN tdnf install -y --disablerepo='*' --enablerepo=azurelinux-official-base ca-certificates tar gzip \
+    && tdnf clean all
+
+WORKDIR /tmp/notation
+COPY notation_${NOTATION_VERSION}_checksums.txt ./
+RUN curl -fsSLO "https://github.com/notaryproject/notation/releases/download/v${NOTATION_VERSION}/notation_${NOTATION_VERSION}_linux_${BUILDARCH}.tar.gz" \
+    && sha256sum --check --ignore-missing "notation_${NOTATION_VERSION}_checksums.txt" \
+    && tar -xzf "notation_${NOTATION_VERSION}_linux_${BUILDARCH}.tar.gz" -C /usr/local/bin notation
+
+COPY trustpolicy.json msft_supply_chain.crt ./
+RUN notation certificate add --type ca --store supplychain msft_supply_chain.crt \
+    && notation policy import trustpolicy.json \
+    && notation verify "$VERIFICATION_IMAGE"
+
+FROM verification-tooling AS verification
+ARG BASE_IMAGE
+
+
+# The registryScopes attribute in Notation's trustpolicy.json does not support
+# a registry-wide scope (we can't define something like "mcr.microsoft.com/*"),
+# so we enforce MCR here:
+RUN case "$BASE_IMAGE" in mcr.microsoft.com/*) ;; *) exit 1 ;; esac \
+    && case "$VERIFICATION_IMAGE" in mcr.microsoft.com/*) ;; *) exit 1 ;; esac \
+    && notation verify "$BASE_IMAGE" \
+    && touch /verified
+
+FROM ${BASE_IMAGE} AS build
+COPY --from=verification /verified /verified

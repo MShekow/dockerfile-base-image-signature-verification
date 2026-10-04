@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "trustPolicies": [
+    {
+      "name": "microsoft-supplychain",
+      "registryScopes": ["*"],
+      "signatureVerification": {
+        "level": "strict"
+      },
+      "trustStores": ["ca:supplychain"],
+      "trustedIdentities": [
+        "x509.subject: CN=Microsoft SCD Products RSA Signing,O=Microsoft Corporation,L=Redmond,ST=Washington,C=US"
+      ]
+    }
+  ]
+}
